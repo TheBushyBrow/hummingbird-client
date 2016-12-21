@@ -2,6 +2,7 @@ import Component from 'ember-component';
 import { task } from 'ember-concurrency';
 import get, { getProperties } from 'ember-metal/get';
 import set from 'ember-metal/set';
+import observer from 'ember-metal/observer';
 import service from 'ember-service/inject';
 import { isEmpty } from 'ember-utils';
 import { capitalize } from 'ember-string';
@@ -34,31 +35,8 @@ export default Component.extend({
     }
   }).readOnly(),
 
-  filteredFeed: computed('feed.[]', 'filter', {
-    get() {
-      const feed = get(this, 'feed');
-      if (feed === undefined) {
-        return [];
-      }
-      let result = feed;
-      const filter = get(this, 'filter');
-      if (filter === 'media') {
-        result = result.filter((group) => {
-          const [type] = get(group, 'activities.firstObject.foreignId').split(':');
-          return type === 'LibraryEntry' || type === 'Review';
-        });
-      } else if (filter === 'user') {
-        result = result.reject((group) => {
-          const [type] = get(group, 'activities.firstObject.foreignId').split(':');
-          return type === 'LibraryEntry' || type === 'Review';
-        });
-      }
-      return result;
-    }
-  }).readOnly(),
-
-  getFeedData: task(function* (type, id, limit = 10) {
-    return yield get(this, 'store').query('feed', {
+  getFeedData: task(function* (type, id, limit = 10, kind = null) {
+    const options = {
       type,
       id,
       include: [
@@ -73,7 +51,11 @@ export default Component.extend({
         'subject.library_entry'
       ].join(','),
       page: { limit }
-    });
+    };
+    if (!isEmpty(kind)) {
+      options.filter = { kind };
+    }
+    return yield get(this, 'store').query('feed', options);
   }).restartable(),
 
   createPost: task(function* (content, options) {
@@ -112,6 +94,52 @@ export default Component.extend({
       });
   }).drop(),
 
+  handleFilter: observer('filter', function() {
+    let kind = get(this, 'filter') === 'all' ? null : get(this, 'filter');
+    if (kind === 'user') { kind = 'posts'; }
+    this._getFeedData(10, kind);
+  }),
+
+  didReceiveAttrs() {
+    this._super(...arguments);
+    get(this, 'headTags').collectHeadTags();
+
+    // cancel any previous subscriptions
+    this._cancelSubscription();
+    this._getFeedData().then((data) => {
+      if (isEmpty(data)) { return; }
+      // realtime
+      const { streamType, streamId } = getProperties(this, 'streamType', 'streamId');
+      const { readonlyToken } = get(data, 'meta');
+      const subscription = get(this, 'streamRealtime')
+        .subscribe(streamType, streamId, readonlyToken, object => this._handleRealtime(object));
+      set(this, 'subscription', subscription);
+    });
+  },
+
+  willDestroyElement() {
+    this._super(...arguments);
+    this._cancelSubscription();
+  },
+
+  _getFeedData(limit = 10, kind = null) {
+    const { streamType, streamId } = getProperties(this, 'streamType', 'streamId');
+    if (isEmpty(streamType) || isEmpty(streamId)) {
+      return;
+    }
+    set(this, 'feed', []);
+    set(this, 'newItems', EmberObject.create({ length: 0, cache: [] }));
+    return get(this, 'getFeedData').perform(streamType, streamId, limit, kind).then((data) => {
+      get(this, 'feed').addObjects(data);
+      set(this, 'feed.links', get(data, 'links'));
+
+      // stream analytics
+      this._trackImpressions(data);
+
+      return data;
+    }).catch(() => {});
+  },
+
   /**
    * Create a temporary activity group record so that we can push a new
    * post into the feed without a refresh.
@@ -131,39 +159,6 @@ export default Component.extend({
       activities: [activity]
     });
     return [group, activity];
-  },
-
-  didReceiveAttrs() {
-    this._super(...arguments);
-    get(this, 'headTags').collectHeadTags();
-
-    // cancel any previous subscriptions
-    this._cancelSubscription();
-
-    const { streamType, streamId } = getProperties(this, 'streamType', 'streamId');
-    if (isEmpty(streamType) || isEmpty(streamId)) {
-      return;
-    }
-    set(this, 'feed', []);
-    set(this, 'newItems', EmberObject.create({ length: 0, cache: [] }));
-    get(this, 'getFeedData').perform(streamType, streamId).then((data) => {
-      get(this, 'feed').addObjects(data);
-      set(this, 'feed.links', get(data, 'links'));
-
-      // realtime
-      const { readonlyToken } = get(data, 'meta');
-      const subscription = get(this, 'streamRealtime').subscribe(streamType, streamId, readonlyToken,
-        object => this._handleRealtime(object));
-      set(this, 'subscription', subscription);
-
-      // stream analytics
-      this._trackImpressions(data);
-    }).catch(() => {});
-  },
-
-  willDestroyElement() {
-    this._super(...arguments);
-    this._cancelSubscription();
   },
 
   _trackImpressions(data) {
