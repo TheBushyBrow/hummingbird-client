@@ -8,13 +8,13 @@ import { isEmpty } from 'ember-utils';
 import { capitalize } from 'ember-string';
 import computed from 'ember-computed';
 import EmberObject from 'ember-object';
+import { storageFor } from 'ember-local-storage';
 import getter from 'client/utils/getter';
 import { modelType } from 'client/helpers/model-type';
 import errorMessages from 'client/utils/error-messages';
 import { prependObjects } from 'client/utils/array-utils';
 
 export default Component.extend({
-  filter: 'all',
   readOnly: false,
 
   headData: service(),
@@ -24,6 +24,7 @@ export default Component.extend({
   store: service(),
   metrics: service(),
   streamRealtime: service(),
+  lastUsed: storageFor('last-used'),
 
   feedId: getter(function() {
     return `${get(this, 'streamType')}:${get(this, 'streamId')}`;
@@ -52,8 +53,8 @@ export default Component.extend({
       ].join(','),
       page: { limit }
     };
-    if (!isEmpty(kind)) {
-      options.filter = { kind };
+    if (!isEmpty(kind) && kind !== 'all') {
+      options.filter = { kind: kind === 'user' ? 'posts' : kind };
     }
     return yield get(this, 'store').query('feed', options);
   }).restartable(),
@@ -95,10 +96,13 @@ export default Component.extend({
   }).drop(),
 
   handleFilter: observer('filter', function() {
-    let kind = get(this, 'filter') === 'all' ? null : get(this, 'filter');
-    if (kind === 'user') { kind = 'posts'; }
-    this._getFeedData(10, kind);
+    this._getFeedData(10, get(this, 'filter'));
   }),
+
+  init() {
+    this._super(...arguments);
+    set(this, 'filter', get(this, 'lastUsed.feedFilter') || 'all');
+  },
 
   didReceiveAttrs() {
     this._super(...arguments);
@@ -106,7 +110,7 @@ export default Component.extend({
 
     // cancel any previous subscriptions
     this._cancelSubscription();
-    this._getFeedData().then((data) => {
+    this._getFeedData(10, get(this, 'filter')).then((data) => {
       if (isEmpty(data)) { return; }
       // realtime
       const { streamType, streamId } = getProperties(this, 'streamType', 'streamId');
@@ -229,6 +233,11 @@ export default Component.extend({
 
     removeGroup(group) {
       get(this, 'feed').removeObject(group);
+    },
+
+    updateFilter(option) {
+      set(this, 'filter', option);
+      set(this, 'lastUsed.feedFilter', option);
     },
 
     /**
