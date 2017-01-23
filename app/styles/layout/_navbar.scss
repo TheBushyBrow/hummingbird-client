@@ -5,8 +5,35 @@
   width: 100%;
   &.primary-nav {
     z-index: $zIndex--primary-nav;
+    background: #402f3f;
+    border-bottom: 1px solid darken($voodoo, 4);
     .row {
       display: inherit;
+    }
+    .navbar-nav .nav-link {
+      color: RGBA(237, 240, 241, .6);
+      &:hover, &.active {
+        color: RGBA(237, 240, 241, 1);
+      }
+    }
+    #exCollapsingNavbar2 {
+      position: relative;
+      top: 1px;
+      @media (max-width: 545px) {
+        width: 100%;
+        padding: 0;
+        margin: 0;
+        left: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        .nav-link {
+          border-color: #291e28;
+          &:hover {
+            background: transparent;
+          }
+        }
+      }
     }
   }
   .primary-nav--drop {
@@ -43,7 +70,7 @@
     }
   }
   .logo {
-    width: 80px;
+    width: 90px;
     display: inline-block;
     position: relative;
     top: 3px;
@@ -100,8 +127,11 @@
   font-size: 13px;
   position: relative;
   top: 3px;
-  border: 1px solid #eee;
+  border: 1px solid #a8a3a9;
   font-family: $heading-font-family;
+  &:hover, &:active {
+    border-color: #EDF0F1;
+  }
   &.notifications--present {
     background: linear-gradient(RGBA(237, 72, 95, 1), RGBA(242, 124, 54, 1));
     border: none;
@@ -116,7 +146,7 @@
     position: relative;
     top: -5px;
     width: 20px;
-    fill: rgba(0,0,0,.44);
+    fill: RGBA(237, 240, 241, 0.8);
   }
 }
 
@@ -144,17 +174,18 @@
   position: absolute;
   left: -25px;
   top: 12px;
-  fill: rgba(0,0,0,.44);
+  fill: RGBA(237, 240, 241, 0.8);
 }
 .site-search__input {
   border-radius: 20px;
-  border: 1px solid $eggshell;
+  border: 1px solid #a8a3a9;
+  background: transparent;
   cursor: pointer;
   height: 32px;
   width: 32px;
   padding-left: 15px;
   text-indent: -9999px;
-  color: rgba(0,0,0,.44);
+  color: #EDF0F1;
   outline: none;
   transition: width 0.2s cubic-bezier(0, 1.2, 0.4, 1.03);
   -webkit-font-smoothing: antialiased;
@@ -163,6 +194,9 @@
     text-indent: 0;
     width: 300px;
     padding-left: 15px;
+  }
+  &:hover {
+    border-color: #EDF0F1;
   }
 }
 
@@ -298,4 +332,8 @@
     display: block;
     opacity: .6;
   }
+}
+
+.navbar-toggler {
+  color: RGBA(237, 240, 241, .6);
 }

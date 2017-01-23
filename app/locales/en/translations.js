@@ -123,14 +123,16 @@ export default {
         relationships: {
           sequel: 'Sequel',
           prequel: 'Prequel',
-          alternate_setting: 'Alternate setting',
-          alternate_version: 'Alternate version',
+          alternative_setting: 'Alt. setting',
+          alternative_version: 'Alt. version',
           side_story: 'Side story',
           parent_story: 'Parent story',
           summary: 'Summary',
           full_story: 'Full story',
           spinoff: 'Spin-off',
           adaptation: 'Adaptation',
+          anime_adaptation: 'Anime',
+          manga_adaptation: 'Manga',
           character: 'Character',
           other: 'Other'
         },
